@@ -37,8 +37,8 @@ fn solve<T: BufRead>(lines: std::io::Lines<T>) -> usize {
         );
     }
 
-    one.sort();
-    two.sort();
+    one.sort_unstable();
+    two.sort_unstable();
 
     one.iter()
         .enumerate()
