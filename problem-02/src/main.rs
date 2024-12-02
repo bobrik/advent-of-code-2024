@@ -1,5 +1,7 @@
 use std::io::BufRead;
 
+use fxhash::FxHashMap;
+
 fn main() {
     let stdin = std::io::stdin();
     let lines = stdin.lock().lines();
@@ -13,7 +15,7 @@ fn main() {
 
 fn solve<T: BufRead>(lines: std::io::Lines<T>) -> usize {
     let mut one = vec![];
-    let mut two = vec![];
+    let mut two = FxHashMap::default();
 
     for line in lines {
         let line = line.expect("broken line");
@@ -28,17 +30,18 @@ fn solve<T: BufRead>(lines: std::io::Lines<T>) -> usize {
                 .expect("error parsing number"),
         );
 
-        two.push(
+        *two.entry(
             parts
                 .next()
                 .expect("missing right column")
                 .parse::<usize>()
                 .expect("error parsing number"),
-        );
+        )
+        .or_default() += 1;
     }
 
     one.iter()
-        .map(|left| left * two.iter().filter(|candidate| *candidate == left).count())
+        .map(|left| left * two.get(left).unwrap_or(&0))
         .sum()
 }
 

@@ -6,3 +6,6 @@ edition = "2021"
 [profile.release]
 lto = true
 debug = true
+
+[dependencies]
+fxhash = { version = "0.2" }
