@@ -1,6 +1,4 @@
-use std::{io::BufRead, str::FromStr, sync::LazyLock};
-
-use regex::Regex;
+use std::{io::BufRead, str::FromStr};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -12,9 +10,6 @@ fn main() {
 
     println!("Solution: {} [{}us]", solution, elapsed.as_micros())
 }
-
-static MUL_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"mul\(\d{1,3},\d{1,3}\)"#).expect("error compiling regexp"));
 
 struct Multiplication {
     one: usize,
@@ -33,29 +28,37 @@ impl FromStr for Multiplication {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (one, two) = s
             .strip_prefix("mul(")
-            .expect("missing 'mul(' prefix")
+            .ok_or_else(|| "missing 'mul(' prefix".to_owned())?
             .strip_suffix(')')
-            .expect("missing ')' suffix")
+            .ok_or_else(|| "missing ')' suffix".to_owned())?
             .split_once(',')
-            .expect("broken mul(...)");
+            .ok_or_else(|| "broken mul(...)".to_owned())?;
 
-        let one = one.parse().expect("broken left operand");
-        let two = two.parse().expect("broken right operand");
+        let one = one.parse::<usize>().map_err(|error| error.to_string())?;
+        let two = two.parse::<usize>().map_err(|error| error.to_string())?;
 
         Ok(Self { one, two })
     }
 }
 
-fn compute(input: &str) -> usize {
-    MUL_REGEX
-        .find_iter(input)
-        .map(|m| {
-            m.as_str()
-                .parse::<Multiplication>()
-                .expect("error parsing multiplication")
-        })
-        .map(|m| m.compute())
-        .sum()
+fn compute(mut input: &str) -> usize {
+    let mut sum = 0;
+
+    loop {
+        input = match input.find("mul(") {
+            Some(start) => match &input[start..].find(')') {
+                Some(end) => match &input[start..start + end + 1].parse::<Multiplication>() {
+                    Ok(multiplication) => {
+                        sum += multiplication.compute();
+                        &input[start + end + 1..]
+                    }
+                    Err(_) => &input[start + 1..],
+                },
+                None => return sum,
+            },
+            None => return sum,
+        };
+    }
 }
 
 fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
