@@ -1,0 +1,11 @@
+[package]
+name = "problem-05"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+debug = true
+
+[dependencies]
+regex = { version = "1" }
