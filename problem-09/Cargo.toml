@@ -6,6 +6,3 @@ edition = "2021"
 [profile.release]
 lto = true
 debug = true
-
-[dependencies]
-rustc-hash = { version = "2" }

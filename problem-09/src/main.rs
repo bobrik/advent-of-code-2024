@@ -1,7 +1,5 @@
 use std::{io::BufRead, str::FromStr};
 
-use rustc_hash::FxHashMap;
-
 fn main() {
     let stdin = std::io::stdin();
     let lines = stdin.lock().lines();
@@ -30,26 +28,26 @@ impl FromStr for Rule {
 }
 
 struct Update {
-    inner: FxHashMap<usize, usize>,
+    inner: [Option<usize>; 256],
 }
 
 impl Update {
-    fn new(inner: impl IntoIterator<Item = usize>) -> Self {
-        let inner = inner
-            .into_iter()
-            .enumerate()
-            .map(|(idx, number)| (number, idx))
-            .collect();
+    fn new(input: impl IntoIterator<Item = usize>) -> Self {
+        let mut inner = [None; 256];
+
+        for (idx, number) in input.into_iter().enumerate() {
+            inner[number] = Some(idx);
+        }
 
         Self { inner }
     }
 
     fn is_conformant_to(&self, rule: &Rule) -> bool {
-        let Some(pos_0) = self.inner.get(&rule.0) else {
+        let Some(pos_0) = self.inner[rule.0] else {
             return true;
         };
 
-        let Some(pos_1) = self.inner.get(&rule.1) else {
+        let Some(pos_1) = self.inner[rule.1] else {
             return true;
         };
 
@@ -60,12 +58,13 @@ impl Update {
         let mut reconstructed = self
             .inner
             .iter()
-            .map(|(number, idx)| (idx, number))
+            .enumerate()
+            .filter_map(|(number, idx)| idx.map(|idx| (idx, number)))
             .collect::<Vec<_>>();
 
-        reconstructed.sort_unstable_by_key(|(idx, _)| **idx);
+        reconstructed.sort_unstable_by_key(|(idx, _)| *idx);
 
-        *reconstructed[reconstructed.len() / 2].1
+        reconstructed[reconstructed.len() / 2].1
     }
 }
 
