@@ -100,14 +100,21 @@ impl Seen {
             + direction.index()
     }
 
+    fn contains(&self, position: Position, direction: Direction) -> bool {
+        self.inner[self.index(position, direction)]
+    }
+
+    fn contains_any(&self, position: Position) -> bool {
+        self.inner[self.index(position, Direction::North)]
+            || self.inner[self.index(position, Direction::East)]
+            || self.inner[self.index(position, Direction::South)]
+            || self.inner[self.index(position, Direction::West)]
+    }
+
     fn insert(&mut self, position: Position, direction: Direction) -> bool {
         let index = self.index(position, direction);
 
         !self.inner.replace(index, true)
-    }
-
-    fn zero(&mut self) {
-        self.inner.fill(false);
     }
 }
 
@@ -165,14 +172,14 @@ impl Field {
     fn is_loop_with_obstacle_in(
         &self,
         obstacle: Position,
-        start: Position,
-        seen: &mut Seen,
+        mut position: Position,
+        mut direction: Direction,
+        path_taken: &Seen,
     ) -> bool {
-        let mut position = start;
-        let mut direction = Direction::North;
+        let mut seen = Seen::new(self.rows.len(), self.rows[0].len());
 
         loop {
-            if !seen.insert(position, direction) {
+            if path_taken.contains(position, direction) || !seen.insert(position, direction) {
                 return true;
             }
 
@@ -185,51 +192,38 @@ impl Field {
         false
     }
 
-    fn trace_path(&self, start: Position) -> Vec<Position> {
-        let mut visited = self
-            .rows
-            .iter()
-            .map(|row| vec![false; row.len()])
-            .collect::<Vec<_>>();
+    fn count_possible_obstacles(&self, start: Position) -> usize {
+        let mut count = 0;
+
+        let mut path_taken = Seen::new(self.rows.len(), self.rows[0].len());
 
         let mut position = start;
         let mut direction = Direction::North;
 
         loop {
-            visited[position.y][position.x] = true;
+            let prev_position = position;
+            let prev_direction = direction;
 
             (position, direction) = match self.make_a_move(position, direction, None) {
                 Some((position, direction)) => (position, direction),
                 None => break,
+            };
+
+            if !path_taken.contains_any(position)
+                && self.is_loop_with_obstacle_in(
+                    position,
+                    prev_position,
+                    prev_direction,
+                    &path_taken,
+                )
+            {
+                count += 1;
             }
+
+            path_taken.insert(prev_position, prev_direction);
         }
 
-        visited
-            .iter()
-            .enumerate()
-            .flat_map(|(y, row)| {
-                row.iter().enumerate().filter_map(move |(x, visited)| {
-                    if *visited {
-                        Some(Position::new(y, x))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect()
-    }
-
-    fn count_possible_obstacles(&self, start: Position) -> usize {
-        let mut seen = Seen::new(self.rows.len(), self.rows[0].len());
-
-        self.trace_path(start)
-            .into_iter()
-            .filter(|candidate| {
-                seen.zero();
-
-                self.is_loop_with_obstacle_in(*candidate, start, &mut seen)
-            })
-            .count()
+        count
     }
 }
 
