@@ -103,13 +103,7 @@ impl Seen {
     fn insert(&mut self, position: Position, direction: Direction) -> bool {
         let index = self.index(position, direction);
 
-        if self.inner[index] {
-            return false;
-        }
-
-        self.inner.set(index, true);
-
-        true
+        !self.inner.replace(index, true)
     }
 
     fn zero(&mut self) {
