@@ -130,7 +130,7 @@ impl Field {
         &self,
         position: Position,
         direction: Direction,
-        extra_obstacle: Position,
+        extra_obstacle: Option<Position>,
     ) -> Option<(Position, Direction)> {
         let (dy, dx) = direction.diff();
 
@@ -148,10 +148,15 @@ impl Field {
         let y = y as usize;
         let x = x as usize;
 
-        let occupancy = if y == extra_obstacle.y && x == extra_obstacle.x {
-            Occupancy::Occupied
-        } else {
-            self.rows[y][x]
+        let occupancy = match extra_obstacle {
+            Some(extra_obstacle) => {
+                if y == extra_obstacle.y && x == extra_obstacle.x {
+                    Occupancy::Occupied
+                } else {
+                    self.rows[y][x]
+                }
+            }
+            None => self.rows[y][x],
         };
 
         if occupancy == Occupancy::Occupied {
@@ -177,7 +182,7 @@ impl Field {
                 return true;
             }
 
-            (position, direction) = match self.make_a_move(position, direction, obstacle) {
+            (position, direction) = match self.make_a_move(position, direction, Some(obstacle)) {
                 Some((position, direction)) => (position, direction),
                 None => break,
             };
@@ -186,30 +191,51 @@ impl Field {
         false
     }
 
-    fn count_possible_obstacles(&self, start: Position) -> usize {
-        let mut seen = Seen::new(self.rows.len(), self.rows[0].len());
+    fn trace_path(&self, start: Position) -> Vec<Position> {
+        let mut visited = self
+            .rows
+            .iter()
+            .map(|row| vec![false; row.len()])
+            .collect::<Vec<_>>();
 
-        let mut count = 0;
+        let mut position = start;
+        let mut direction = Direction::North;
 
-        for y in 0..self.rows.len() {
-            for x in 0..self.rows[y].len() {
-                if start.y == y && start.x == x {
-                    continue;
-                }
+        loop {
+            visited[position.y][position.x] = true;
 
-                if self.rows[y][x] == Occupancy::Occupied {
-                    continue;
-                }
-
-                seen.zero();
-
-                if self.is_loop_with_obstacle_in(Position::new(y, x), start, &mut seen) {
-                    count += 1;
-                }
+            (position, direction) = match self.make_a_move(position, direction, None) {
+                Some((position, direction)) => (position, direction),
+                None => break,
             }
         }
 
-        count
+        visited
+            .iter()
+            .enumerate()
+            .flat_map(|(y, row)| {
+                row.iter().enumerate().filter_map(move |(x, visited)| {
+                    if *visited {
+                        Some(Position::new(y, x))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect()
+    }
+
+    fn count_possible_obstacles(&self, start: Position) -> usize {
+        let mut seen = Seen::new(self.rows.len(), self.rows[0].len());
+
+        self.trace_path(start)
+            .into_iter()
+            .filter(|candidate| {
+                seen.zero();
+
+                self.is_loop_with_obstacle_in(*candidate, start, &mut seen)
+            })
+            .count()
     }
 }
 
