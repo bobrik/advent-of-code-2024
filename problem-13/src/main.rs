@@ -11,46 +11,72 @@ fn main() {
     println!("Solution: {} [{}us]", solution, elapsed.as_micros())
 }
 
+static OPERATORS: &[Operator] = &[Operator::Sum, Operator::Product];
+
+#[derive(Clone, Copy)]
 enum Operator {
     Sum,
     Product,
 }
 
 impl Operator {
-    fn apply(&self, left: usize, right: usize) -> usize {
+    fn apply_inverse(&self, left: usize, right: usize) -> Option<usize> {
         match self {
-            Operator::Sum => left + right,
-            Operator::Product => left * right,
+            Operator::Sum => {
+                if right > left {
+                    Some(right - left)
+                } else {
+                    None
+                }
+            }
+            Operator::Product => {
+                if right % left == 0 {
+                    Some(right / left)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
 
-#[derive(Debug)]
 struct Equation {
     result: usize,
     constituents: Vec<usize>,
 }
 
 impl Equation {
-    fn can_be_solved(&self) -> bool {
-        for n in 0..2usize.pow(self.constituents.len() as u32 - 1) {
-            let mut accumulator = self.constituents[0];
+    fn can_reach_result_via(
+        result: usize,
+        operator: Operator,
+        constituents: &[usize],
+        idx: usize,
+    ) -> bool {
+        let Some(result) = operator.apply_inverse(constituents[idx], result) else {
+            return false;
+        };
 
-            for idx in 1..self.constituents.len() {
-                if accumulator > self.result {
-                    break;
-                }
+        if idx == 1 {
+            return constituents[0] == result;
+        }
 
-                let operator = if n & 1 << (idx - 1) != 0 {
-                    Operator::Product
-                } else {
-                    Operator::Sum
-                };
-
-                accumulator = operator.apply(accumulator, self.constituents[idx])
+        for operator in OPERATORS {
+            if Self::can_reach_result_via(result, *operator, constituents, idx - 1) {
+                return true;
             }
+        }
 
-            if accumulator == self.result {
+        false
+    }
+
+    fn can_be_solved(&self) -> bool {
+        for operator in OPERATORS {
+            if Self::can_reach_result_via(
+                self.result,
+                *operator,
+                &self.constituents,
+                self.constituents.len() - 1,
+            ) {
                 return true;
             }
         }

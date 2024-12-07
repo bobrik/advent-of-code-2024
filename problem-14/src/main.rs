@@ -13,7 +13,7 @@ fn main() {
 
 static OPERATORS: &[Operator] = &[Operator::Sum, Operator::Product, Operator::Concatenate];
 
-#[derive(Debug)]
+#[derive(Clone, Copy)]
 enum Operator {
     Sum,
     Product,
@@ -21,96 +21,81 @@ enum Operator {
 }
 
 impl Operator {
-    fn apply(&self, left: usize, right: usize) -> usize {
+    fn apply_inverse(&self, left: usize, right: usize) -> Option<usize> {
         match self {
-            Operator::Sum => left + right,
-            Operator::Product => left * right,
-            Operator::Concatenate => left * 10usize.pow(right.ilog10() + 1) + right,
-        }
-    }
-}
-
-struct Combinator<T>
-where
-    T: 'static,
-{
-    len: usize,
-    values: &'static [T],
-    current: Vec<usize>,
-    computed: Vec<&'static T>,
-}
-
-impl<T> Combinator<T> {
-    fn new(values: &'static [T], len: usize) -> Self {
-        let current = vec![0; len];
-        let computed = current.iter().map(|idx| &values[*idx]).collect();
-
-        Self {
-            len,
-            values,
-            current,
-            computed,
-        }
-    }
-
-    fn advance(&mut self) -> bool {
-        for i in 0..self.len {
-            if self.current[i] == self.values.len() - 1 {
-                if i == self.len - 1 {
-                    return false;
+            Operator::Sum => {
+                if right > left {
+                    Some(right - left)
+                } else {
+                    None
+                }
+            }
+            Operator::Product => {
+                if right % left == 0 {
+                    Some(right / left)
+                } else {
+                    None
+                }
+            }
+            Operator::Concatenate => {
+                if right == 0 {
+                    return None;
                 }
 
-                self.current[i] = 0;
+                let right_ilog10 = right.ilog10();
+                let left_ilog10 = left.ilog10();
 
-                continue;
+                if right_ilog10 >= left_ilog10 && right % 10usize.pow(left_ilog10 + 1) == left {
+                    Some(right / 10usize.pow(left_ilog10 + 1))
+                } else {
+                    None
+                }
             }
-
-            self.current[i] += 1;
-
-            for idx in 0..self.len {
-                self.computed[idx] = &self.values[self.current[idx]];
-            }
-
-            return true;
         }
-
-        false
-    }
-
-    fn current(&self) -> &[&T] {
-        &self.computed
     }
 }
 
-#[derive(Debug)]
 struct Equation {
     result: usize,
     constituents: Vec<usize>,
 }
 
 impl Equation {
-    fn can_be_solved(&self) -> bool {
-        let mut combinator = Combinator::new(OPERATORS, self.constituents.len() - 1);
+    fn can_reach_result_via(
+        result: usize,
+        operator: Operator,
+        constituents: &[usize],
+        idx: usize,
+    ) -> bool {
+        let Some(result) = operator.apply_inverse(constituents[idx], result) else {
+            return false;
+        };
 
-        loop {
-            let mut accumulator = self.constituents[0];
+        if idx == 1 {
+            return constituents[0] == result;
+        }
 
-            for (idx, operator) in combinator.current().iter().enumerate() {
-                if accumulator > self.result {
-                    break;
-                }
-
-                accumulator = operator.apply(accumulator, self.constituents[idx + 1]);
-            }
-
-            if accumulator == self.result {
+        for operator in OPERATORS {
+            if Self::can_reach_result_via(result, *operator, constituents, idx - 1) {
                 return true;
             }
+        }
 
-            if !combinator.advance() {
-                break;
+        false
+    }
+
+    fn can_be_solved(&self) -> bool {
+        for operator in OPERATORS {
+            if Self::can_reach_result_via(
+                self.result,
+                *operator,
+                &self.constituents,
+                self.constituents.len() - 1,
+            ) {
+                return true;
             }
         }
+
         false
     }
 }
