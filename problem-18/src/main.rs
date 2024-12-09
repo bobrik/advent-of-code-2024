@@ -1,4 +1,4 @@
-use std::io::BufRead;
+use std::{collections::HashSet, io::BufRead};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -34,65 +34,82 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         })
         .collect::<Vec<_>>();
 
-    let mut checksum = 0;
-
-    let mut map_idx = 0;
-    let mut block_idx = 0;
+    let mut moved = HashSet::new();
 
     loop {
-        if map_idx >= maps.len() {
+        let candidate = maps
+            .iter()
+            .enumerate()
+            .rev()
+            .filter_map(|(idx, map)| match map {
+                Map::File(id, size) => {
+                    if moved.insert(*id) {
+                        Some((idx, *id, *size))
+                    } else {
+                        None
+                    }
+                }
+                Map::Free(_) => None,
+            })
+            .next();
+
+        let Some((candidate_map_idx, candidate_id, candidate_size)) = candidate else {
             break;
+        };
+
+        let mut insert = None;
+
+        for (map_idx, map) in maps.iter().enumerate() {
+            if let Map::Free(free_size) = map {
+                if map_idx >= candidate_map_idx {
+                    break;
+                }
+
+                if candidate_size <= *free_size {
+                    insert = Some((
+                        candidate_map_idx,
+                        candidate_id,
+                        candidate_size,
+                        map_idx,
+                        *free_size,
+                    ));
+
+                    break;
+                }
+            }
         }
 
-        match maps[map_idx] {
+        if let Some((candidate_map_idx, candidate_id, candidate_size, free_map_idx, free_size)) =
+            insert
+        {
+            maps[candidate_map_idx] = Map::Free(candidate_size);
+
+            if free_size == candidate_size {
+                maps[free_map_idx] = Map::File(candidate_id, candidate_size);
+            } else {
+                maps[free_map_idx] = Map::Free(free_size - candidate_size);
+                maps.insert(free_map_idx, Map::File(candidate_id, candidate_size));
+            }
+        }
+
+        while let Some(Map::Free(_)) = maps.last() {
+            maps.pop();
+        }
+    }
+
+    let mut checksum = 0;
+    let mut block_idx = 0;
+
+    for map in maps {
+        match map {
             Map::File(id, size) => {
                 for _ in 0..size {
                     checksum += block_idx * id;
                     block_idx += 1;
                 }
             }
-            Map::Free(mut free_size) => loop {
-                if free_size == 0 {
-                    break;
-                }
-
-                if map_idx == maps.len() - 1 {
-                    break;
-                }
-
-                let mut found = false;
-
-                for candidate_map_idx in (map_idx..maps.len()).rev() {
-                    if let Map::File(id, size) = maps[candidate_map_idx] {
-                        if size <= free_size {
-                            for _ in 0..size {
-                                checksum += block_idx * id;
-                                block_idx += 1;
-                            }
-
-                            maps[candidate_map_idx] = Map::Free(size);
-
-                            free_size -= size;
-
-                            found = true;
-
-                            break;
-                        }
-                    }
-                }
-
-                while let Some(Map::Free(_)) = maps.last() {
-                    maps.pop();
-                }
-
-                if !found {
-                    block_idx += free_size as usize;
-                    break;
-                }
-            },
-        }
-
-        map_idx += 1;
+            Map::Free(size) => block_idx += size as usize,
+        };
     }
 
     checksum
