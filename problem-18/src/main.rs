@@ -34,14 +34,15 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         })
         .collect::<Vec<_>>();
 
-    let mut skip = 0;
+    let mut skip_forward = 0;
+    let mut skip_backward = 0;
 
     loop {
         let candidate = maps
             .iter()
             .enumerate()
             .rev()
-            .skip(skip)
+            .skip(skip_backward)
             .filter_map(|(idx, map)| match map {
                 Map::File(id, size) => Some((idx, *id, *size)),
                 Map::Free(_) => None,
@@ -53,9 +54,18 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         };
 
         let mut insert = None;
+        let mut filled = true;
 
-        for (map_idx, map) in maps.iter().enumerate() {
+        for (map_idx, map) in maps.iter().enumerate().skip(skip_forward) {
             if let Map::Free(free_size) = map {
+                if *free_size != 0 {
+                    filled = false;
+                }
+
+                if filled {
+                    skip_forward = map_idx;
+                }
+
                 if map_idx >= candidate_map_idx {
                     break;
                 }
@@ -87,7 +97,7 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
             }
         }
 
-        skip = maps.len() - candidate_map_idx;
+        skip_backward = maps.len() - candidate_map_idx;
     }
 
     let mut checksum = 0;
