@@ -81,6 +81,10 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
                     }
                 }
 
+                while let Some(Map::Free(_)) = maps.last() {
+                    maps.pop();
+                }
+
                 if !found {
                     block_idx += free_size as usize;
                     break;
