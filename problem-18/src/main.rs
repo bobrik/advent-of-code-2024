@@ -1,4 +1,6 @@
-use std::{collections::HashSet, io::BufRead};
+use std::io::BufRead;
+
+use bitvec::bitvec;
 
 fn main() {
     let stdin = std::io::stdin();
@@ -34,7 +36,7 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         })
         .collect::<Vec<_>>();
 
-    let mut moved = HashSet::new();
+    let mut moved = bitvec![0; maps.len()];
 
     loop {
         let candidate = maps
@@ -43,7 +45,7 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
             .rev()
             .filter_map(|(idx, map)| match map {
                 Map::File(id, size) => {
-                    if moved.insert(*id) {
+                    if !moved.replace(*id, true) {
                         Some((idx, *id, *size))
                     } else {
                         None
