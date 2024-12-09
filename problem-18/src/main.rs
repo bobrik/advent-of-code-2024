@@ -1,7 +1,5 @@
 use std::io::BufRead;
 
-use bitvec::bitvec;
-
 fn main() {
     let stdin = std::io::stdin();
     let lines = stdin.lock().lines();
@@ -36,21 +34,16 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         })
         .collect::<Vec<_>>();
 
-    let mut moved = bitvec![0; maps.len()];
+    let mut skip = 0;
 
     loop {
         let candidate = maps
             .iter()
             .enumerate()
             .rev()
+            .skip(skip)
             .filter_map(|(idx, map)| match map {
-                Map::File(id, size) => {
-                    if !moved.replace(*id, true) {
-                        Some((idx, *id, *size))
-                    } else {
-                        None
-                    }
-                }
+                Map::File(id, size) => Some((idx, *id, *size)),
                 Map::Free(_) => None,
             })
             .next();
@@ -94,9 +87,7 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
             }
         }
 
-        while let Some(Map::Free(_)) = maps.last() {
-            maps.pop();
-        }
+        skip = maps.len() - candidate_map_idx;
     }
 
     let mut checksum = 0;
