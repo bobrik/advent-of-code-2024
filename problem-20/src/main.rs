@@ -1,7 +1,5 @@
 use std::io::BufRead;
 
-use rustc_hash::FxHashSet;
-
 fn main() {
     let stdin = std::io::stdin();
     let lines = stdin.lock().lines();
@@ -98,13 +96,9 @@ impl Field {
     fn rating_from(&self, start: Position) -> usize {
         let mut rating = 0;
 
-        let mut stack = vec![(start, FxHashSet::default())];
+        let mut stack = vec![(start)];
 
-        while let Some((position, mut visited)) = stack.pop() {
-            if !visited.insert(position) {
-                continue;
-            }
-
+        while let Some(position) = stack.pop() {
             let value = self.rows[position.y][position.x];
 
             if value == 9 {
@@ -118,7 +112,7 @@ impl Field {
                         continue;
                     }
 
-                    stack.push((next, visited.clone()));
+                    stack.push(next);
                 }
             }
         }
