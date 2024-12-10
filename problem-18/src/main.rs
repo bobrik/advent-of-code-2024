@@ -11,6 +11,7 @@ fn main() {
     println!("Solution: {} [{}us]", solution, elapsed.as_micros())
 }
 
+#[derive(Clone, Copy)]
 enum Map {
     File(usize, u8),
     Free(u8),
@@ -34,85 +35,85 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         })
         .collect::<Vec<_>>();
 
-    let mut skip_forward = 0;
-    let mut skip_backward = 0;
-
-    loop {
-        let candidate = maps
-            .iter()
-            .enumerate()
-            .rev()
-            .skip(skip_backward)
-            .filter_map(|(idx, map)| match map {
-                Map::File(id, size) => Some((idx, *id, *size)),
-                Map::Free(_) => None,
-            })
-            .next();
-
-        let Some((candidate_map_idx, candidate_id, candidate_size)) = candidate else {
-            break;
-        };
-
-        let mut insert = None;
-        let mut filled = true;
-
-        for (map_idx, map) in maps.iter().enumerate().skip(skip_forward) {
-            if let Map::Free(free_size) = map {
-                if *free_size != 0 {
-                    filled = false;
-                }
-
-                if filled {
-                    skip_forward = map_idx;
-                }
-
-                if map_idx >= candidate_map_idx {
-                    break;
-                }
-
-                if candidate_size <= *free_size {
-                    insert = Some((
-                        candidate_map_idx,
-                        candidate_id,
-                        candidate_size,
-                        map_idx,
-                        *free_size,
-                    ));
-
-                    break;
-                }
-            }
-        }
-
-        if let Some((candidate_map_idx, candidate_id, candidate_size, free_map_idx, free_size)) =
-            insert
-        {
-            maps[candidate_map_idx] = Map::Free(candidate_size);
-
-            if free_size == candidate_size {
-                maps[free_map_idx] = Map::File(candidate_id, candidate_size);
-            } else {
-                maps[free_map_idx] = Map::Free(free_size - candidate_size);
-                maps.insert(free_map_idx, Map::File(candidate_id, candidate_size));
-            }
-        }
-
-        skip_backward = maps.len() - candidate_map_idx;
-    }
+    let mut candidates = maps
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, map)| match map {
+            Map::File(_, _) => Some(Some((idx, *map))),
+            Map::Free(_) => None,
+        })
+        .rev()
+        .collect::<Vec<_>>();
 
     let mut checksum = 0;
+
+    let mut map_idx = 0;
     let mut block_idx = 0;
 
-    for map in maps {
-        match map {
+    loop {
+        if map_idx >= maps.len() {
+            break;
+        }
+
+        match maps[map_idx] {
             Map::File(id, size) => {
                 for _ in 0..size {
                     checksum += block_idx * id;
                     block_idx += 1;
                 }
             }
-            Map::Free(size) => block_idx += size as usize,
-        };
+            Map::Free(mut free_size) => loop {
+                if free_size == 0 {
+                    break;
+                }
+
+                if map_idx == maps.len() - 1 {
+                    break;
+                }
+
+                let mut found = None;
+
+                for (candidate_idx, candidate) in candidates.iter().enumerate() {
+                    if let Some((candidate_map_idx, Map::File(id, size))) = candidate {
+                        if *candidate_map_idx <= map_idx {
+                            break;
+                        }
+
+                        if *size <= free_size {
+                            for _ in 0..*size {
+                                checksum += block_idx * id;
+                                block_idx += 1;
+                            }
+
+                            // This doesn't let candidates move into newly freed zones,
+                            // satisfying "attempt to move each file exactly once".
+                            maps[*candidate_map_idx] = Map::Free(*size);
+
+                            free_size -= size;
+
+                            found = Some(candidate_idx);
+
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(candidate_idx) = found {
+                    candidates[candidate_idx] = None;
+                }
+
+                while let Some(Map::Free(_)) = maps.last() {
+                    maps.pop();
+                }
+
+                if found.is_none() {
+                    block_idx += free_size as usize;
+                    break;
+                }
+            },
+        }
+
+        map_idx += 1;
     }
 
     checksum
