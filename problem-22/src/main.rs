@@ -1,6 +1,6 @@
 use std::io::BufRead;
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -56,7 +56,7 @@ fn solve<T: BufRead>(mut lines: std::io::Lines<T>) -> usize {
         .map(|n| n.parse::<usize>().expect("error parsing number"))
         .collect::<Vec<_>>();
 
-    let mut cache = FxHashMap::default();
+    let mut cache = FxHashMap::with_capacity_and_hasher(64 * 1024, FxBuildHasher);
 
     numbers
         .into_iter()
