@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, io::BufRead};
 
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxBuildHasher, FxHashSet};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -146,19 +146,25 @@ impl Field {
 
         Self { rows, max_y, max_x }
     }
-
     fn regions(&self) -> Vec<Region> {
         let mut regions: Vec<Region> = vec![];
+
+        let mut filled =
+            FxHashSet::<Position>::with_capacity_and_hasher(self.max_y * self.max_x, FxBuildHasher);
 
         for y in 0..=self.max_y {
             for x in 0..=self.max_x {
                 let candidate = Position::new(y, x);
 
-                if regions.iter().any(|region| region.contains(candidate)) {
+                if filled.contains(&candidate) {
                     continue;
                 }
 
-                regions.push(Region::new_from(self, candidate));
+                let region = Region::new_from(self, candidate);
+
+                filled.extend(region.inner.iter());
+
+                regions.push(region);
             }
         }
 
