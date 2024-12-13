@@ -1,0 +1,132 @@
+use std::{io::BufRead, str::FromStr};
+
+fn main() {
+    let stdin = std::io::stdin();
+    let lines = stdin.lock().lines();
+
+    let started = std::time::Instant::now();
+    let solution = solve(lines);
+    let elapsed = started.elapsed();
+
+    println!("Solution: {} [{}us]", solution, elapsed.as_micros())
+}
+
+#[derive(Debug)]
+struct Position {
+    x: usize,
+    y: usize,
+}
+
+impl Position {
+    fn new(x: usize, y: usize) -> Self {
+        Self { x, y }
+    }
+}
+
+impl FromStr for Position {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, position) = s.split_once(": ").expect("broken position / offset line");
+
+        let (x, y) = position
+            .split_once(", ")
+            .expect("broken position / offset format");
+
+        let x = x[2..].parse::<usize>().expect("error parsing x");
+        let y = y[2..].parse::<usize>().expect("error parsing x");
+
+        Ok(Position::new(x, y))
+    }
+}
+
+#[derive(Debug)]
+struct Machine {
+    button_a: Position,
+    button_b: Position,
+    prize: Position,
+}
+
+impl Machine {
+    fn new(button_a: Position, button_b: Position, prize: Position) -> Self {
+        Self {
+            button_a,
+            button_b,
+            prize,
+        }
+    }
+
+    fn cheapest_option(&self) -> Option<usize> {
+        let mut min = 0;
+
+        for a in 0..100 {
+            for b in 0..100 {
+                if a * self.button_a.x + b * self.button_b.x != self.prize.x {
+                    continue;
+                }
+
+                if a * self.button_a.y + b * self.button_b.y != self.prize.y {
+                    continue;
+                }
+
+                let cost = a * 3 + b;
+
+                if min == 0 || min > cost {
+                    min = cost;
+                }
+            }
+        }
+
+        if min == 0 {
+            return None;
+        }
+
+        Some(min)
+    }
+}
+
+fn solve<T: BufRead>(lines: std::io::Lines<T>) -> usize {
+    let mut lines = lines.map(|line| line.expect("broken line"));
+
+    let mut machines = vec![];
+
+    loop {
+        let Some(line) = lines.next() else {
+            break;
+        };
+
+        if line.is_empty() {
+            continue;
+        }
+
+        let button_a = line.parse().expect("error parsing button a line");
+
+        let button_b = lines
+            .next()
+            .expect("missing button b line")
+            .parse()
+            .expect("error parsing button b line");
+
+        let prize = lines
+            .next()
+            .expect("missing prize line")
+            .parse()
+            .expect("error parsing prize line");
+
+        machines.push(Machine::new(button_a, button_b, prize));
+    }
+
+    machines
+        .iter()
+        .filter_map(|machine| machine.cheapest_option())
+        .sum()
+}
+
+#[test]
+fn test_solution() {
+    let file = std::fs::File::open("check.txt").expect("cannot open input");
+    assert_eq!(480, solve(std::io::BufReader::new(file).lines()));
+
+    let file = std::fs::File::open("input.txt").expect("cannot open input");
+    assert_eq!(30973, solve(std::io::BufReader::new(file).lines()));
+}
