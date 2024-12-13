@@ -13,12 +13,12 @@ fn main() {
 
 #[derive(Debug)]
 struct Position {
-    x: usize,
-    y: usize,
+    x: isize,
+    y: isize,
 }
 
 impl Position {
-    fn new(x: usize, y: usize) -> Self {
+    fn new(x: isize, y: isize) -> Self {
         Self { x, y }
     }
 }
@@ -33,8 +33,8 @@ impl FromStr for Position {
             .split_once(", ")
             .expect("broken position / offset format");
 
-        let x = x[2..].parse::<usize>().expect("error parsing x");
-        let y = y[2..].parse::<usize>().expect("error parsing x");
+        let x = x[2..].parse::<isize>().expect("error parsing x");
+        let y = y[2..].parse::<isize>().expect("error parsing x");
 
         Ok(Position::new(x, y))
     }
@@ -57,31 +57,21 @@ impl Machine {
     }
 
     fn cheapest_option(&self) -> Option<usize> {
-        let mut min = 0;
+        let b = (self.prize.x * self.button_a.y - self.prize.y * self.button_a.x)
+            / (self.button_a.y * self.button_b.x - self.button_b.y * self.button_a.x);
 
-        for a in 0..100 {
-            for b in 0..100 {
-                if a * self.button_a.x + b * self.button_b.x != self.prize.x {
-                    continue;
-                }
+        let a = (self.prize.x * self.button_b.y - self.prize.y * self.button_b.x)
+            / (self.button_b.y * self.button_a.x - self.button_b.x * self.button_a.y);
 
-                if a * self.button_a.y + b * self.button_b.y != self.prize.y {
-                    continue;
-                }
-
-                let cost = a * 3 + b;
-
-                if min == 0 || min > cost {
-                    min = cost;
-                }
-            }
-        }
-
-        if min == 0 {
+        if a * self.button_a.x + b * self.button_b.x != self.prize.x {
             return None;
         }
 
-        Some(min)
+        if a * self.button_a.y + b * self.button_b.y != self.prize.y {
+            return None;
+        }
+
+        Some(a as usize * 3 + b as usize)
     }
 }
 

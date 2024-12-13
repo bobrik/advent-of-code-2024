@@ -1,7 +1,5 @@
 use std::{io::BufRead, str::FromStr};
 
-use z3::ast::Ast;
-
 fn main() {
     let stdin = std::io::stdin();
     let lines = stdin.lock().lines();
@@ -15,12 +13,12 @@ fn main() {
 
 #[derive(Debug)]
 struct Position {
-    x: usize,
-    y: usize,
+    x: isize,
+    y: isize,
 }
 
 impl Position {
-    fn new(x: usize, y: usize) -> Self {
+    fn new(x: isize, y: isize) -> Self {
         Self { x, y }
     }
 }
@@ -35,8 +33,8 @@ impl FromStr for Position {
             .split_once(", ")
             .expect("broken position / offset format");
 
-        let x = x[2..].parse::<usize>().expect("error parsing x");
-        let y = y[2..].parse::<usize>().expect("error parsing x");
+        let x = x[2..].parse::<isize>().expect("error parsing x");
+        let y = y[2..].parse::<isize>().expect("error parsing x");
 
         Ok(Position::new(x, y))
     }
@@ -59,44 +57,21 @@ impl Machine {
     }
 
     fn cheapest_option(&self) -> Option<usize> {
-        let ctx = z3::Context::new(&z3::Config::new());
+        let b = (self.prize.x * self.button_a.y - self.prize.y * self.button_a.x)
+            / (self.button_a.y * self.button_b.x - self.button_b.y * self.button_a.x);
 
-        let solver = z3::Solver::new(&ctx);
+        let a = (self.prize.x * self.button_b.y - self.prize.y * self.button_b.x)
+            / (self.button_b.y * self.button_a.x - self.button_b.x * self.button_a.y);
 
-        let a = z3::ast::Int::new_const(&ctx, "a");
-        let b = z3::ast::Int::new_const(&ctx, "b");
-
-        let a_x = z3::ast::Int::from_u64(&ctx, self.button_a.x as u64);
-        let a_y = z3::ast::Int::from_u64(&ctx, self.button_a.y as u64);
-
-        let b_x = z3::ast::Int::from_u64(&ctx, self.button_b.x as u64);
-        let b_y = z3::ast::Int::from_u64(&ctx, self.button_b.y as u64);
-
-        let p_x = z3::ast::Int::from_u64(&ctx, self.prize.x as u64);
-        let p_y = z3::ast::Int::from_u64(&ctx, self.prize.y as u64);
-
-        solver.assert(&(a.clone() * a_x + b.clone() * b_x)._eq(&p_x));
-        solver.assert(&(a.clone() * a_y + b.clone() * b_y)._eq(&p_y));
-
-        if solver.check() != z3::SatResult::Sat {
+        if a * self.button_a.x + b * self.button_b.x != self.prize.x {
             return None;
         }
 
-        let model = solver.get_model().expect("error getting solver model");
+        if a * self.button_a.y + b * self.button_b.y != self.prize.y {
+            return None;
+        }
 
-        let a = model
-            .eval(&a, true)
-            .expect("error evaluating a")
-            .as_u64()
-            .expect("error representing a as u64") as usize;
-
-        let b = model
-            .eval(&b, true)
-            .expect("error evaluating b")
-            .as_u64()
-            .expect("error representing b as u64") as usize;
-
-        Some(a * 3 + b)
+        Some(a as usize * 3 + b as usize)
     }
 }
 
