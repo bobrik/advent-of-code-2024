@@ -1,0 +1,12 @@
+[package]
+name = "problem-34"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+panic = "abort"
+lto = true
+debug = true
+
+[dependencies]
+itertools = { version = "0.13.0" }
