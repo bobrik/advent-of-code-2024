@@ -1,6 +1,10 @@
-use std::{collections::VecDeque, io::BufRead};
+use std::{
+    collections::{hash_map::Entry, VecDeque},
+    io::BufRead,
+};
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use bitvec::{bitvec, vec::BitVec};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -70,6 +74,10 @@ impl Position {
 
         Some(Position::new(y as usize, x as usize))
     }
+
+    fn bit(&self, max_x: usize) -> usize {
+        self.y * (max_x + 1) + self.x
+    }
 }
 
 #[derive(Debug)]
@@ -87,9 +95,10 @@ impl Field {
         &self,
         start: Position,
         end: Position,
-        corrupt: &FxHashSet<Position>,
+        corrupt: &BitVec,
     ) -> Option<FxHashSet<Position>> {
-        let mut seen = FxHashMap::default();
+        let mut seen =
+            FxHashMap::with_capacity_and_hasher((self.max_x + self.max_y) * 2, FxBuildHasher);
 
         let mut queue = VecDeque::new();
         queue.push_back((start, 0));
@@ -97,8 +106,6 @@ impl Field {
         while let Some((position, count)) = queue.pop_front() {
             if position == end {
                 let mut path = FxHashSet::default();
-                path.insert(end);
-
                 let mut position = end;
 
                 while let Some(prev) = seen.remove(&position) {
@@ -111,13 +118,14 @@ impl Field {
 
             for direction in DIRECTIONS {
                 if let Some(next) = position.next(*direction, self.max_y, self.max_x) {
-                    if corrupt.contains(&next) {
+                    if corrupt[next.bit(self.max_x)] {
                         continue;
                     }
 
-                    if seen.contains_key(&next) {
-                        continue;
-                    }
+                    match seen.entry(next) {
+                        Entry::Occupied(_) => continue,
+                        Entry::Vacant(vacant) => vacant.insert(position),
+                    };
 
                     seen.insert(next, position);
 
@@ -131,10 +139,10 @@ impl Field {
 
     fn first_death(&self, start: Position, end: Position, candidates: &[Position]) -> Position {
         let mut path = FxHashSet::default();
-        let mut corrupt = FxHashSet::default();
+        let mut corrupt = bitvec![0; (self.max_y + 1) * (self.max_x + 1)];
 
         for position in candidates {
-            corrupt.insert(*position);
+            corrupt.set(position.bit(self.max_x), true);
 
             if !path.is_empty() && !path.contains(position) {
                 continue;

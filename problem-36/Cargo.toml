@@ -9,3 +9,4 @@ debug = true
 
 [dependencies]
 rustc-hash = { version = "2" }
+bitvec = { version = "1" }
