@@ -13,11 +13,11 @@ fn main() {
     println!("Solution: {} [{}us]", solution, elapsed.as_micros())
 }
 
-fn count_ways(
-    design: &str,
+fn count_ways<'a>(
+    design: &'a str,
     patterns: &FxHashSet<&str>,
     max_pattern_len: usize,
-    counts: &mut FxHashMap<String, usize>,
+    counts: &mut FxHashMap<&'a str, usize>,
 ) -> usize {
     if design.is_empty() {
         return 1;
@@ -40,7 +40,7 @@ fn count_ways(
         count += count_ways(&design[prefix_len..], patterns, max_pattern_len, counts);
     }
 
-    counts.insert(design.to_string(), count);
+    counts.insert(design, count);
 
     count
 }

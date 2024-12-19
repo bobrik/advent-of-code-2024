@@ -13,11 +13,11 @@ fn main() {
     println!("Solution: {} [{}us]", solution, elapsed.as_micros())
 }
 
-fn is_possible(
-    design: &str,
+fn is_possible<'a>(
+    design: &'a str,
     patterns: &FxHashSet<&str>,
     max_pattern_len: usize,
-    impossible: &mut FxHashSet<String>,
+    impossible: &mut FxHashSet<&'a str>,
 ) -> bool {
     if design.is_empty() {
         return true;
@@ -40,7 +40,7 @@ fn is_possible(
         }
     }
 
-    impossible.insert(design.to_string());
+    impossible.insert(design);
 
     false
 }
