@@ -1,10 +1,6 @@
-use std::{
-    collections::{hash_map::Entry, VecDeque},
-    io::BufRead,
-};
+use std::{cmp::Ordering, collections::VecDeque, io::BufRead};
 
 use bitvec::{bitvec, vec::BitVec};
-use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -91,29 +87,16 @@ impl Field {
         Self { max_y, max_x }
     }
 
-    fn is_reachable_with(
-        &self,
-        start: Position,
-        end: Position,
-        corrupt: &BitVec,
-    ) -> Option<FxHashSet<Position>> {
-        let mut seen =
-            FxHashMap::with_capacity_and_hasher((self.max_x + self.max_y) * 2, FxBuildHasher);
+    fn is_reachable_with(&self, start: Position, end: Position, corrupt: &BitVec) -> bool {
+        let mut seen = bitvec![0; (self.max_y + 1) * (self.max_x + 1)];
+        seen.set(start.bit(self.max_x), true);
 
         let mut queue = VecDeque::new();
-        queue.push_back((start, 0));
+        queue.push_back(start);
 
-        while let Some((position, count)) = queue.pop_front() {
+        while let Some(position) = queue.pop_front() {
             if position == end {
-                let mut path = FxHashSet::default();
-                let mut position = end;
-
-                while let Some(prev) = seen.remove(&position) {
-                    path.insert(prev);
-                    position = prev;
-                }
-
-                return Some(path);
+                return true;
             }
 
             for direction in DIRECTIONS {
@@ -122,39 +105,36 @@ impl Field {
                         continue;
                     }
 
-                    match seen.entry(next) {
-                        Entry::Occupied(_) => continue,
-                        Entry::Vacant(vacant) => vacant.insert(position),
-                    };
+                    if seen.replace(next.bit(self.max_x), true) {
+                        continue;
+                    }
 
-                    seen.insert(next, position);
-
-                    queue.push_back((next, count + 1));
+                    queue.push_back(next);
                 }
             }
         }
 
-        None
+        false
     }
 
     fn first_death(&self, start: Position, end: Position, candidates: &[Position]) -> Position {
-        let mut path = FxHashSet::default();
-        let mut corrupt = bitvec![0; (self.max_y + 1) * (self.max_x + 1)];
+        let first_idx = (0..candidates.len())
+            .collect::<Vec<_>>()
+            .binary_search_by(|idx| {
+                let mut corrupt = bitvec![0; (self.max_y + 1) * (self.max_x + 1)];
+                for position in &candidates[..=*idx] {
+                    corrupt.set(position.bit(self.max_x), true);
+                }
 
-        for position in candidates {
-            corrupt.set(position.bit(self.max_x), true);
+                if self.is_reachable_with(start, end, &corrupt) {
+                    return Ordering::Less;
+                }
 
-            if !path.is_empty() && !path.contains(position) {
-                continue;
-            }
+                Ordering::Greater
+            })
+            .expect_err("no corruption blocks the path");
 
-            path = match self.is_reachable_with(start, end, &corrupt) {
-                Some(path) => path,
-                None => return *position,
-            };
-        }
-
-        unreachable!()
+        candidates[first_idx]
     }
 }
 
