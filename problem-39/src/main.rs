@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io::BufRead};
+use std::io::BufRead;
 
 use rustc_hash::FxHashSet;
 
@@ -60,15 +60,19 @@ impl Position {
         let y = self.y as isize + dy;
         let x = self.x as isize + dx;
 
-        if y < 0 || y as usize > max_y {
+        if y <= 0 || y as usize >= max_y {
             return None;
         }
 
-        if x < 0 || x as usize > max_x {
+        if x <= 0 || x as usize >= max_x {
             return None;
         }
 
         Some(Position::new(y as usize, x as usize))
+    }
+
+    fn distance(&self, other: Position) -> usize {
+        self.y.abs_diff(other.y) + self.x.abs_diff(other.x)
     }
 }
 
@@ -83,46 +87,43 @@ impl Field {
         Self { max_y, max_x }
     }
 
-    fn min_time(
+    fn track(
         &self,
         start: Position,
         end: Position,
         occupied: &FxHashSet<Position>,
-        cheat: Option<Position>,
-    ) -> Option<usize> {
-        let mut seen = FxHashSet::default();
-        seen.insert(start);
+    ) -> Vec<Position> {
+        let mut track = vec![];
 
-        let mut queue = VecDeque::new();
-        queue.push_back((start, 0));
+        let mut prev = start;
+        let mut curr = start;
 
-        while let Some((position, time)) = queue.pop_front() {
-            if position == end {
-                return Some(time);
+        loop {
+            track.push(curr);
+
+            if curr == end {
+                return track;
             }
 
             for direction in DIRECTIONS {
-                let Some(candidate) = position.next(*direction, self.max_y, self.max_x) else {
+                let Some(candidate) = curr.next(*direction, self.max_y, self.max_x) else {
                     continue;
                 };
 
                 if occupied.contains(&candidate) {
-                    if let Some(cheat) = cheat {
-                        if cheat != candidate {
-                            continue;
-                        }
-                    } else {
-                        continue;
-                    }
+                    continue;
                 }
 
-                if seen.insert(candidate) {
-                    queue.push_back((candidate, time + 1));
+                if prev == candidate {
+                    continue;
                 }
+
+                prev = curr;
+                curr = candidate;
+
+                break;
             }
         }
-
-        None
     }
 }
 
@@ -167,19 +168,28 @@ fn solve<T: BufRead>(lines: std::io::Lines<T>) -> usize {
     let start = start.expect("missing start position");
     let end = end.expect("missing start position");
 
-    let field = Field::new(max_y, max_x);
-
-    let min_time = field
-        .min_time(start, end, &occupied, None)
-        .expect("no path");
-
     let diff = if max_x > 100 { 100 } else { 1 };
 
-    occupied
-        .iter()
-        .filter_map(|cheat| field.min_time(start, end, &occupied, Some(*cheat)))
-        .filter(|time| *time + diff <= min_time)
-        .count()
+    let field = Field::new(max_y, max_x);
+
+    let track = field.track(start, end, &occupied);
+
+    (0..track.len())
+        .map(|from_idx| {
+            (from_idx + diff..track.len())
+                .filter(|to_idx| {
+                    let remove = to_idx - from_idx;
+
+                    let add = track[from_idx].distance(track[*to_idx]);
+                    if add > 2 {
+                        return false;
+                    }
+
+                    remove - add >= diff
+                })
+                .count()
+        })
+        .sum()
 }
 
 #[test]
